@@ -50,7 +50,7 @@ uint8_t ledRx = 0;
  *   LED4        = PB_7, // Red
 */
 
-#include "HTU21D.h"
+#include "/HTU21D/HTU21D/HTU21D.h"
 HTU21D temphumid(I2C_SDA, I2C_SCL); //Temp humid sensor || SDA, SCL
 
 // Max payload size can be LORAMAC_PHY_MAXPAYLOAD.
@@ -74,7 +74,7 @@ uint8_t rx_buffer[30];
 /**
  * Maximum number of retries for CONFIRMED messages before giving up
  */
-#define CONFIRMED_MSG_RETRY_COUNTER     3
+#define CONFIRMED_MSG_RETRY_COUNTER     5
 
 /**
 * This event queue is the global event queue for both the
@@ -178,30 +178,29 @@ static void send_message()
     uint16_t packet_len;
     int16_t retcode;
 
-    uint8_t cchannel=0;
-
     uint16_t humidity = 0;
     int16_t temperature = 0;
-
-    temperature = temphumid.sample_ctemp(); /* in C * 10 */
-    humidity = temphumid.sample_humid();
+    temperature = temphumid.sample_ctemp(); /* x10 */
+    humidity = temphumid.sample_humid(); /* x10 */
     printf("Temperature: %d.%d C\n\r", temperature/10, temperature%10);
-    printf("Humidity: %d %%\n\r", humidity);
+    printf("Humidity: %d.%d %\n\r", humidity/10, humidity%10);
     printf("\n\r");
 
+    uint8_t cchannel=0;
     packet_len = 0;
-    tx_buffer[packet_len++] = cchannel++;
-    tx_buffer[packet_len++] = LPP_DATATYPE_TEMPERATURE; 
-    tx_buffer[packet_len++] = ( temperature >> 8 ) & 0xFF;
-    tx_buffer[packet_len++] = temperature & 0xFF;
-
-    tx_buffer[packet_len++] = cchannel++;
-    tx_buffer[packet_len++] = LPP_DATATYPE_HUMIDITY; 
-    tx_buffer[packet_len++] = (humidity*2) & 0xFF;
 
     tx_buffer[packet_len++] = cchannel++;
     tx_buffer[packet_len++] = LPP_DATATYPE_DIGITAL_OUTPUT; 
     tx_buffer[packet_len++] = ledRx;
+
+    tx_buffer[packet_len++] = cchannel++;
+    tx_buffer[packet_len++] = LPP_DATATYPE_TEMPERATURE; 
+    tx_buffer[packet_len++] = ( temperature >> 8 ) & 0xFF;  
+    tx_buffer[packet_len++] =   temperature & 0xFF; /* 0.1 */
+
+    tx_buffer[packet_len++] = cchannel++;
+    tx_buffer[packet_len++] = LPP_DATATYPE_HUMIDITY; 
+    tx_buffer[packet_len++] = humidity/5; /* 0.5 */
 
     ledBlue = 1;
 
@@ -245,7 +244,7 @@ static void receive_message()
     }
     printf("\r\n");
 
-    if(rx_buffer[0] == 0x02) {
+    if(rx_buffer[0] == 0) {
         if(rx_buffer[2] != 0)
             ledRx = 1;
         else
